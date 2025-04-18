@@ -1,0 +1,46 @@
+//@version=5
+strategy("Gold Breakout Strategy (No Double Entries)", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1)
+
+// === Inputs ===
+breakoutLookback = input.int(200, title="Breakout Lookback (candles)")
+adxThreshold = input.int(25, title="ADX Threshold")
+adxTf = input.timeframe("30", title="ADX Timeframe")
+stopLossRR = input.float(2, title="Stop Loss Risk (ATR Multiplier)")
+takeProfitRR = input.float(10, title="Take Profit Reward (ATR Multiplier)")
+
+// === Breakout Calculation ===
+highestHigh = ta.highest(high, breakoutLookback)
+breakoutCondition = close > highestHigh[1] // breakout after closing above previous 200 highs
+
+// === ADX Calculation on Higher Timeframe ===
+length = 14
+adxFunction() =>
+    upMove = high - high[1]
+    downMove = low[1] - low
+    plusDM = (upMove > downMove and upMove > 0) ? upMove : 0
+    minusDM = (downMove > upMove and downMove > 0) ? downMove : 0
+    trur = ta.rma(ta.tr, length)
+    plusDI = 100 * ta.rma(plusDM, length) / trur
+    minusDI = 100 * ta.rma(minusDM, length) / trur
+    dx = 100 * math.abs(plusDI - minusDI) / (plusDI + minusDI)
+    ta.rma(dx, length)
+
+// Call adxFunction() on higher timeframe
+adx = request.security(syminfo.tickerid, adxTf, adxFunction())
+trendCondition = adx > adxThreshold
+
+// === ATR Calculation ===
+atr = ta.atr(14)
+
+// === Entry Logic ===
+canEnter = strategy.position_size == 0
+
+if (breakoutCondition and trendCondition and canEnter)
+    stopLossPrice = close - (atr * stopLossRR)
+    takeProfitPrice = close + (atr * takeProfitRR)
+    
+    strategy.entry("Long Breakout", strategy.long)
+    strategy.exit("TP/SL", from_entry="Long Breakout", stop=stopLossPrice, limit=takeProfitPrice)
+
+// === Plot for Reference
+plot(highestHigh, color=color.red, title="Previous 200 High")
