@@ -59,12 +59,12 @@ shortPosition = stochShortCondition and cmsShortCondition
 if (longPosition)
     strategy.close("Short")         // Close existing short position if any
     strategy.entry("Long", strategy.long, qty=10)  // Open long position
-    //strategy.exit("Long SL", from_entry="Long", loss=150)  // Stop Loss 150 points
+    //strategy.exit("Long SL", from_entry="Long", loss=150, profit=1000)  // Stop Loss 150 points
 
 if (shortPosition)
     strategy.close("Long")          // Close existing long position if any
     strategy.entry("Short", strategy.short, qty=10)  // Open short position
-    //strategy.exit("Short SL", from_entry="Short", loss=150)  // Stop Loss 150 points
+    //strategy.exit("Short SL", from_entry="Short", loss=150, profit=1000)  // Stop Loss 150 points
 
 // === Optional: Plot Signal on Chart ===
 //plotshape(longPosition, title="Long Signal", location=location.belowbar, color=color.green, style=shape.labelup, size=size.small)
