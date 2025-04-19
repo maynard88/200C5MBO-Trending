@@ -1,5 +1,5 @@
 //@version=5
-strategy("Stochastic Long Strategy (15m TF) with Plot", overlay=true)
+strategy("Stochastic Long Strategy (15m TF) with Proper Position Management", overlay=true)
 
 // === Settings ===
 kLength = 5
@@ -19,60 +19,53 @@ f_stoch(srcHigh, srcLow, srcClose) =>
 stochLongCondition = (k15 < 20) and (d15 < 20) and ta.crossover(k15, d15)
 stochShortCondition = (k15 > 80) and (d15 > 80) and ta.crossunder(k15, d15)
 
-
 // === Plot the Stochastic Lines ===
 plot(k15, title="%K 15m", color=color.blue)
 plot(d15, title="%D 15m", color=color.red)
 
-
-
 // === End of Stochastic Calculation ===
 
-
-// === start of M_Williams_Vix_Fix - Market Top and Bottom ===
-
+// === Start of M_Williams_Vix_Fix - Market Top and Bottom ===
 pd = input(22, title="LookBack Period Standard Deviation High")
 bbl = input(20, title="Bollinger Band Length")
-mult = input.float(2.0, minval=1, maxval=5, title="Bollinger Band Standard Devaition Up")
-lb = input(50  , title="Look Back Period Percentile High")
+mult = input.float(2.0, minval=1, maxval=5, title="Bollinger Band Standard Deviation Up")
+lb = input(50, title="Look Back Period Percentile High")
 ph = input(.85, title="Percentile - 0.90=90%, 0.95=95%, 0.99=99%")
 
-// Original code to find bottom
-wvf = ((ta.highest(close, pd)-low)/(ta.highest(close, pd)))*100
-
+wvf = ((ta.highest(close, pd) - low) / (ta.highest(close, pd))) * 100
 sDev = mult * ta.stdev(wvf, bbl)
 midLine = ta.sma(wvf, bbl)
 lowerBand = midLine - sDev
 upperBand = midLine + sDev
-
 rangeHigh = (ta.highest(wvf, lb)) * ph
 
-// Code to find top
-wvf1 = ((ta.lowest(close, pd)-high)/(ta.lowest(close, pd)))*100
-
+wvf1 = ((ta.lowest(close, pd) - high) / (ta.lowest(close, pd))) * 100
 sDev1 = mult * ta.stdev(wvf1, bbl)
 midLine1 = ta.sma(wvf1, bbl)
 lowerBand1 = midLine1 - sDev1
 upperBand1 = midLine1 + sDev1
-
 rangeLow1 = (ta.lowest(wvf1, lb)) * ph
 
-// market bottom
-//col = wvf >= upperBand or wvf >= rangeHigh ? color.green : color.gray
-cmsLongCondition = wvf >= upperBand or wvf >= rangeHigh ? true : false
+cmsLongCondition = wvf >= upperBand or wvf >= rangeHigh
+cmsShortCondition = wvf1 <= lowerBand1 or wvf1 <= rangeLow1
 
-// market top
-// col1 = wvf1 <= lowerBand1 or wvf1 <= rangeLow1 ? color.red: color.gray
-cmsShortCondition = wvf1 <= lowerBand1 or wvf1 <= rangeLow1 ? true : false
+// === End of M_Williams_Vix_Fix - Market Top and Bottom ===
 
-// === End  of M_Williams_Vix_Fix - Market Top and Bottom ===
+// === Combined Position Logic ===
+longPosition = stochLongCondition and cmsLongCondition
+shortPosition = stochShortCondition and cmsShortCondition
 
+// === Strategy Execution with Proper Management ===
+if (longPosition)
+    strategy.close("Short")         // Close existing short position if any
+    strategy.entry("Long", strategy.long, qty=10)  // Open long position
+    //strategy.exit("Long SL", from_entry="Long", loss=150)  // Stop Loss 150 points
 
-// === Plot Signal Signal ===
-plotshape(stochLongCondition and cmsLongCondition, title="Long Signal", location=location.belowbar, color=color.green, style=shape.labelup, size=size.tiny)
-plotshape(stochShortCondition and cmsShortCondition, title="Short Signal", location=location.abovebar, color=color.red, style=shape.labeldown, size=size.tiny)
+if (shortPosition)
+    strategy.close("Long")          // Close existing long position if any
+    strategy.entry("Short", strategy.short, qty=10)  // Open short position
+    //strategy.exit("Short SL", from_entry="Short", loss=150)  // Stop Loss 150 points
 
-// === Strategy Execution ===
-//if (stochLongCondition)
-//    strategy.entry("Long", strategy.long)
-
+// === Optional: Plot Signal on Chart ===
+//plotshape(longPosition, title="Long Signal", location=location.belowbar, color=color.green, style=shape.labelup, size=size.small)
+//plotshape(shortPosition, title="Short Signal", location=location.abovebar, color=color.red, style=shape.labeldown, size=size.small)
