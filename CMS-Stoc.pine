@@ -1,0 +1,37 @@
+//@version=5
+strategy("Stochastic Long Strategy (15m TF) with Plot", overlay=true)
+
+// === Settings ===
+kLength = 5
+kSmoothing = 3
+dSmoothing = 3
+stochTF = "15"
+
+// === Stochastic Calculation ===
+f_stoch(srcHigh, srcLow, srcClose) =>
+    k = ta.sma(ta.stoch(srcClose, srcHigh, srcLow, kLength), kSmoothing)
+    d = ta.sma(k, dSmoothing)
+    [k, d]
+
+[k15, d15] = request.security(syminfo.tickerid, stochTF, f_stoch(high, low, close))
+
+// === Conditions ===
+stochLongCondition = (k15 < 20) and (d15 < 20) and ta.crossover(k15, d15)
+stochShortCondition = (k15 > 80) and (d15 > 80) and ta.crossunder(k15, d15)
+
+// === Strategy Execution ===
+if (stochLongCondition)
+    strategy.entry("Long", strategy.long)
+
+// === Plot the Stochastic Lines ===
+plot(k15, title="%K 15m", color=color.blue)
+plot(d15, title="%D 15m", color=color.red)
+
+// === Plot Shape Signal ===
+plotshape(stochLongCondition, title="Long Signal", location=location.belowbar, color=color.green, style=shape.labelup, size=size.tiny)
+plotshape(stochShortCondition, title="Long Signal", location=location.abovebar, color=color.red, style=shape.labeldown, size=size.tiny)
+
+
+
+// === Optional: Background Highlight ===
+//bgcolor(stochCondition ? color.new(color.green, 90) : na)
