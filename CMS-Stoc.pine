@@ -20,8 +20,8 @@ stochLongCondition = (k15 < 20) and (d15 < 20) and ta.crossover(k15, d15)
 stochShortCondition = (k15 > 80) and (d15 > 80) and ta.crossunder(k15, d15)
 
 // === Plot the Stochastic Lines ===
-plot(k15, title="%K 15m", color=color.blue)
-plot(d15, title="%D 15m", color=color.red)
+//plot(k15, title="%K 15m", color=color.blue)
+//plot(d15, title="%D 15m", color=color.red)
 
 // === End of Stochastic Calculation ===
 
