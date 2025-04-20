@@ -25,29 +25,43 @@ plot(d15, title="%D 15m", color=color.red)
 
 // === End of Stochastic Calculation ===
 
+
+
 // === Start of M_Williams_Vix_Fix - Market Top and Bottom ===
 pd = input(22, title="LookBack Period Standard Deviation High")
 bbl = input(20, title="Bollinger Band Length")
-mult = input.float(2.0, minval=1, maxval=5, title="Bollinger Band Standard Deviation Up")
-lb = input(50, title="Look Back Period Percentile High")
+mult = input.float(2.0, minval=1, maxval=5, title="Bollinger Band Standard Devaition Up")
+lb = input(50  , title="Look Back Period Percentile High")
 ph = input(.85, title="Percentile - 0.90=90%, 0.95=95%, 0.99=99%")
 
-wvf = ((ta.highest(close, pd) - low) / (ta.highest(close, pd))) * 100
+wvf = ((ta.highest(close, pd)-low)/(ta.highest(close, pd)))*100
+
 sDev = mult * ta.stdev(wvf, bbl)
 midLine = ta.sma(wvf, bbl)
 lowerBand = midLine - sDev
 upperBand = midLine + sDev
+
 rangeHigh = (ta.highest(wvf, lb)) * ph
 
-wvf1 = ((ta.lowest(close, pd) - high) / (ta.lowest(close, pd))) * 100
+wvf1 = ((ta.lowest(close, pd)-high)/(ta.lowest(close, pd)))*100
+
 sDev1 = mult * ta.stdev(wvf1, bbl)
 midLine1 = ta.sma(wvf1, bbl)
 lowerBand1 = midLine1 - sDev1
 upperBand1 = midLine1 + sDev1
+
 rangeLow1 = (ta.lowest(wvf1, lb)) * ph
 
-cmsLongCondition = wvf >= upperBand or wvf >= rangeHigh
-cmsShortCondition = wvf1 <= lowerBand1 or wvf1 <= rangeLow1
+cmsLongCondition = wvf >= upperBand or wvf >= rangeHigh 
+col = wvf >= upperBand or wvf >= rangeHigh ? color.lime : color.gray
+
+cmsShortCondition = wvf1 <= lowerBand1 or wvf1 <= rangeLow1 
+col1 = wvf1 <= lowerBand1 or wvf1 <= rangeLow1 ? color.red: color.gray
+
+plot(-1 * wvf, title="Market Bottom", style=plot.style_columns, linewidth = 4, color=col)
+plot(-1 * wvf1, title="Market Top", style=plot.style_columns, linewidth = 4, color=col1)
+
+
 
 // === End of M_Williams_Vix_Fix - Market Top and Bottom ===
 

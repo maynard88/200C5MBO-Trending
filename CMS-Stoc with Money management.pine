@@ -20,8 +20,8 @@ stochLongCondition = (k15 < 20) and (d15 < 20) and ta.crossover(k15, d15)
 stochShortCondition = (k15 > 80) and (d15 > 80) and ta.crossunder(k15, d15)
 
 // === Plot the Stochastic Lines ===
-plot(k15, title="%K 15m", color=color.blue)
-plot(d15, title="%D 15m", color=color.red)
+//plot(k15, title="%K 15m", color=color.blue)
+//plot(d15, title="%D 15m", color=color.red)
 
 // === End of Stochastic Calculation ===
 
@@ -55,15 +55,29 @@ cmsShortCondition = wvf1 <= lowerBand1 or wvf1 <= rangeLow1
 longPosition = stochLongCondition and cmsLongCondition
 shortPosition = stochShortCondition and cmsShortCondition
 
+
+// === Money Management ===
+capital = input.float(1000000, title="Capital ($)")  // your total capital
+riskPercent = input.float(1, title="Risk % per trade") // how much % risk per trade
+stopLossPoints = input.float(150, title="Stop Loss (Points)") // how many points your stop loss is
+dollarPerPoint = input.float(10, title="Dollar per Point per Qty") // $10 per 1 qty
+
+// === Calculate Qty based on Risk ===
+// === Dynamic Qty Calculation ===
+riskAmount = capital * (riskPercent / 100)
+qty = riskAmount / (stopLossPoints * dollarPerPoint)
+qtyRounded = math.round(qty)
+
 // === Strategy Execution with Proper Management ===
 if (longPosition)
     strategy.close("Short")         // Close existing short position if any
-    strategy.entry("Long", strategy.long, qty=454)  // Open long position
-    //strategy.exit("Long SL", from_entry="Long", loss=150, profit=1000)  // Stop Loss 150 points
+    strategy.entry("Long", strategy.long, qty=qtyRounded)  // Open long position
+    strategy.exit("Long SL", from_entry="Long", loss=stopLossPoints)  // Auto stop loss
 
 if (shortPosition)
     strategy.close("Long")          // Close existing long position if any
-    strategy.entry("Short", strategy.short, qty=454)  // Open short position
+    strategy.entry("Short", strategy.short, qty=qtyRounded)  // Open short position
+      strategy.exit("Short SL", from_entry="Short", loss=stopLossPoints)  // Auto stop loss
     //strategy.exit("Short SL", from_entry="Short", loss=150, profit=1000)  // Stop Loss 150 points
 
 // === Optional: Plot Signal on Chart ===

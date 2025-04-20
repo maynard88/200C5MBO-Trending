@@ -1,0 +1,121 @@
+//+------------------------------------------------------------------+
+//|                                Stochastic 15m + VixFix 5m EA    |
+//+------------------------------------------------------------------+
+#property strict
+
+// Inputs
+input int kLength = 5;
+input int kSmoothing = 3;
+input int dSmoothing = 3;
+input int pd = 22;
+input int bbl = 20;
+input double mult = 2.0;
+input int lb = 50;
+input double ph = 0.85;
+input double Lots = 0.05; // Lot Size
+input int Slippage = 3;
+
+//+------------------------------------------------------------------+
+//| Expert initialization function |
+//+------------------------------------------------------------------+
+int OnInit() {
+   return INIT_SUCCEEDED;
+}
+
+//+------------------------------------------------------------------+
+//| Expert tick function |
+//+------------------------------------------------------------------+
+void OnTick() {
+   // --- Calculate Stochastic (from M15 Timeframe) ---
+   double kPrev = iStochastic(NULL, PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_MAIN, 1);
+   double dPrev = iStochastic(NULL, PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_SIGNAL, 1);
+
+   double kCurr = iStochastic(NULL, PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_MAIN, 0);
+   double dCurr = iStochastic(NULL, PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_SIGNAL, 0);
+
+   bool stochLongCondition = (kCurr < 20) && (dCurr < 20) && (kPrev < dPrev) && (kCurr > dCurr);
+   bool stochShortCondition = (kCurr > 80) && (dCurr > 80) && (kPrev > dPrev) && (kCurr < dCurr);
+
+   // --- Prepare VixFix arrays ---
+   double wvfArray[500];
+   double wvf1Array[500];
+
+   int wvfSize = MathMax(pd, MathMax(bbl, lb)) + 10; // Make sure array is big enough
+
+   for (int i = 0; i < wvfSize; i++) {
+      double highestCloseVal = Close[iHighest(NULL, 0, MODE_CLOSE, pd, i)];
+      wvfArray[i] = ((highestCloseVal - Low[i]) / highestCloseVal) * 100;
+
+      double lowestCloseVal = Close[iLowest(NULL, 0, MODE_CLOSE, pd, i)];
+      wvf1Array[i] = ((lowestCloseVal - High[i]) / lowestCloseVal) * 100;
+   }
+
+   // --- VixFix Calculations ---
+   double midLine = iMAOnArray(wvfArray, 0, bbl, 0, MODE_SMA, 0);
+   double sDev = mult * iStdDevOnArray(wvf1Array, wvfSize, bbl, 0, MODE_SMA, 0);
+   double upperBand = midLine + sDev;
+   double rangeHigh = High[iHighest(NULL, 0, MODE_CLOSE, lb, 0)] * ph;
+
+   double midLine1 = iMAOnArray(wvf1Array, 0, bbl, 0, MODE_SMA, 0);
+   double sDev1 = mult * iStdDevOnArray(wvf1Array, wvfSize, bbl, 0, MODE_SMA, 0);
+   double lowerBand1 = midLine1 - sDev1;
+   double rangeLow1 = Low[iLowest(NULL, 0, MODE_CLOSE, lb, 0)] * ph;
+
+   bool cmsLongCondition = (wvfArray[0] >= upperBand) || (wvfArray[0] >= rangeHigh);
+   bool cmsShortCondition = (wvf1Array[0] <= lowerBand1) || (wvf1Array[0] <= rangeLow1);
+
+   // --- Combined Position Logic ---
+   bool longPosition = stochLongCondition && cmsLongCondition;
+   bool shortPosition = stochShortCondition && cmsShortCondition;
+
+   // --- Execute Trades ---
+   if (longPosition) {
+      CloseAllShorts();
+      OpenOrder(OP_BUY);
+   }
+
+   if (shortPosition) {
+      CloseAllLongs();
+      OpenOrder(OP_SELL);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Open Orders |
+//+------------------------------------------------------------------+
+void OpenOrder(int orderType) {
+   double price = (orderType == OP_BUY) ? Ask : Bid;
+   double sl = 0; // No SL
+   double tp = 0; // No TP
+   int ticket = OrderSend(Symbol(), orderType, Lots, price, Slippage, sl, tp, "Auto EA", 0, 0, clrBlue);
+   if (ticket < 0) {
+      Print("OrderSend failed with error #", GetLastError());
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Close all Long Orders |
+//+------------------------------------------------------------------+
+void CloseAllLongs() {
+   for (int i = OrdersTotal() - 1; i >= 0; i--) {
+      if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES)) {
+         if (OrderType() == OP_BUY && OrderSymbol() == Symbol()) {
+            OrderClose(OrderTicket(), OrderLots(), Bid, Slippage, clrWhite);
+         }
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Close all Short Orders |
+//+------------------------------------------------------------------+
+void CloseAllShorts() {
+   for (int i = OrdersTotal() - 1; i >= 0; i--) {
+      if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES)) {
+         if (OrderType() == OP_SELL && OrderSymbol() == Symbol()) {
+            OrderClose(OrderTicket(), OrderLots(), Ask, Slippage, clrWhite);
+         }
+      }
+   }
+}
+//+------------------------------------------------------------------+

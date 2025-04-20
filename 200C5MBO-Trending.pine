@@ -47,7 +47,7 @@ atr = ta.atr(14)
 canEnter = strategy.position_size == 0
 
 if (breakoutCondition and trendCondition and canEnter)
-    stopLossPrice = close - (atr * stopLossRR)
+    stopLossPrice = close[2] - (atr * stopLossRR)
     takeProfitPrice = close + (atr * takeProfitRR)
     
     strategy.entry("Long Breakout", strategy.long)
