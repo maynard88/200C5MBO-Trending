@@ -80,7 +80,9 @@ int start()
     
      double wvfHolder[];
      GetWVf(wvfHolder, pos);
-
+     
+     double wvf1Holder[];
+GetWVf(wvfHolder, pos)
      
      // pos = 0 is the latest bar
      while (pos >= 0)
@@ -101,9 +103,7 @@ int start()
          rangeHigh = ph * GetWvfHighest(wvfHolder, pos, lb);
          
          bool cmsLongCondition = wvf >= upperBand || wvf >= rangeHigh;
-         
-         //VIXFIX[pos] = - wvf;
-         
+           
          if (cmsLongCondition)
          {
             BottomSignal[pos] = -wvf;
@@ -113,6 +113,15 @@ int start()
          {
             BottomGray[pos] = -wvf;          
          }
+         
+         
+         // wvf1
+         Max = Close[iLowest(NULL, 0, MODE_CLOSE, pd, pos)];
+         wvf1 = 100 * (Max - High[pos]) / Max;
+         
+         
+         
+         
    
          pos--;
      }
