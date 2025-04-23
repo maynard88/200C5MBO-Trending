@@ -6,8 +6,11 @@
 #property copyright "Copyright © 2024, Maynard Paye"
 
 #property indicator_separate_window
-#property indicator_buffers 1
-#property indicator_color1 Red
+#property indicator_buffers 6
+#property indicator_color1 Lime    // Market Bottom signal
+#property indicator_color2 Gray   // Market Bottom no signal
+#property indicator_color3 Red   // Market Top signal
+#property indicator_color4 Gray   // Market Top no signal
 
 extern int pd = 22;
 extern int bbl = 20;
@@ -16,19 +19,33 @@ extern int lb = 50;
 extern double ph = 0.85;
 
 
-double VIXFIX[];
-double VIXFIXSTD[];
+double BottomSignal[];
+double BottomGray[];
+
+double TopSignal[];
+double TopGray[];
 
 int init()
 {
      IndicatorShortName("William Vix-Fix");
      IndicatorDigits(Digits);
 
-     SetIndexStyle(0, DRAW_HISTOGRAM, STYLE_SOLID , 2, clrGray);
-     SetIndexBuffer(0, VIXFIX);
+     //SetIndexStyle(0, DRAW_HISTOGRAM, STYLE_SOLID , 2, clrGray);
+     //SetIndexBuffer(0, VIXFIX);
      
-     SetIndexStyle(1, DRAW_HISTOGRAM, STYLE_SOLID , 2, clrRed);
-     SetIndexBuffer(1, VIXFIXSTD);
+     
+     SetIndexBuffer(0, BottomSignal);
+     SetIndexStyle(0, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrLimeGreen);
+      
+     SetIndexBuffer(1, BottomGray);
+     SetIndexStyle(1, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrGray);
+      
+     SetIndexBuffer(2, TopSignal);
+     SetIndexStyle(2, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrRed);
+      
+     SetIndexBuffer(3, TopGray);
+     SetIndexStyle(3, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrGray);
+     
 
      return (0);
 }
@@ -83,9 +100,19 @@ int start()
               
          rangeHigh = ph * GetWvfHighest(wvfHolder, pos, lb);
          
+         bool cmsLongCondition = wvf >= upperBand || wvf >= rangeHigh;
          
-
-         VIXFIX[pos] = rangeHigh;
+         //VIXFIX[pos] = - wvf;
+         
+         if (cmsLongCondition)
+         {
+            BottomSignal[pos] = -wvf;
+            BottomGray[pos] = EMPTY_VALUE;
+         }
+         else
+         {
+            BottomGray[pos] = -wvf;          
+         }
    
          pos--;
      }
