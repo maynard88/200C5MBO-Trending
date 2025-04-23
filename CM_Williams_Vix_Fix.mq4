@@ -4,14 +4,13 @@
 //|                                        http://www.marketcalls.in |
 //+------------------------------------------------------------------+
 #property copyright "Copyright © 2015, Marketcalls"
-#property link      "http://www.marketcalls.in"
+#property link "http://www.marketcalls.in"
 
 #property indicator_separate_window
 #property indicator_buffers 1
-#property indicator_color1 Red 
+#property indicator_color1 Red
 
 extern int iPeriod = 22;
-
 
 double VIXFIX[];
 
@@ -34,20 +33,26 @@ int deinit()
 
 int start()
 {
-     if (Bars <= iPeriod) return (0);
- int ExtCountedBars = IndicatorCounted();
-     if (ExtCountedBars < 0) return (-1);
- int limit = Bars - 2;
-     if (ExtCountedBars > 2) limit = Bars - ExtCountedBars - 1;
- int pos;
- double Max;
+     if (Bars <= iPeriod)
+          return (0);
+     int ExtCountedBars = IndicatorCounted();
+     if (ExtCountedBars < 0)
+          return (-1);
+     int limit = Bars - 2;
+     if (ExtCountedBars > 2)
+          limit = Bars - ExtCountedBars - 1;
+     int pos;
+     double Max;
      pos = limit;
-     while (pos >= 0) {
+     while (pos >= 0)
+     {
           Max = Close[iHighest(NULL, 0, MODE_CLOSE, iPeriod, pos)];
-          if (Max > 0) {
+          if (Max > 0)
+          {
                VIXFIX[pos] = 100 * (Max - Low[pos]) / Max;
           }
-          else {
+          else
+          {
                VIXFIX[pos] = 0;
           }
           pos--;
