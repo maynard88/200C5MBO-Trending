@@ -10,7 +10,7 @@
 #property indicator_buffers 1
 #property indicator_color1 Red
 
-extern int iPeriod = 22;
+extern int pd = 22;
 
 double VIXFIX[];
 
@@ -33,7 +33,7 @@ int deinit()
 
 int start()
 {
-     if (Bars <= iPeriod)
+     if (Bars <= pd)
           return (0);
      int ExtCountedBars = IndicatorCounted();
      if (ExtCountedBars < 0)
@@ -42,19 +42,31 @@ int start()
      if (ExtCountedBars > 2)
           limit = Bars - ExtCountedBars - 1;
      int pos;
-     double Max;
+     double Max; 
+     double wvf;    
      pos = limit;
+
+
+
      while (pos >= 0)
      {
-          Max = Close[iHighest(NULL, 0, MODE_CLOSE, iPeriod, pos)];
-          if (Max > 0)
+
+          Max = Close[iHighest(NULL, 0, MODE_CLOSE, pd, pos)];
+          wvf = 100 * (Max - Low[pos]) / Max;
+
+          // Correct up to here //
+
+          VIXFIX[pos] = wvf;
+
+          /*if (Max > 0)
           {
                VIXFIX[pos] = 100 * (Max - Low[pos]) / Max;
           }
           else
           {
                VIXFIX[pos] = 0;
-          }
+          }*/
+
           pos--;
      }
      return (0);
