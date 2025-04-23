@@ -30,21 +30,18 @@ int init()
      IndicatorShortName("William Vix-Fix");
      IndicatorDigits(Digits);
 
-     //SetIndexStyle(0, DRAW_HISTOGRAM, STYLE_SOLID , 2, clrGray);
-     //SetIndexBuffer(0, VIXFIX);
-     
-     
      SetIndexBuffer(0, BottomSignal);
      SetIndexStyle(0, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrLimeGreen);
-      
+
      SetIndexBuffer(1, BottomGray);
      SetIndexStyle(1, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrGray);
-      
+ 
      SetIndexBuffer(2, TopSignal);
      SetIndexStyle(2, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrRed);
-      
+
      SetIndexBuffer(3, TopGray);
      SetIndexStyle(3, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrGray);
+
      
 
      return (0);
@@ -52,9 +49,10 @@ int init()
 
 int deinit()
 {
-
-     return (0);
+   return (0);
 }
+
+/*
 
 int start()
 {
@@ -66,7 +64,8 @@ int start()
      int limit = Bars - 2;
      if (ExtCountedBars > 2)
           limit = Bars - ExtCountedBars - 1;
-     int pos;
+          
+     int pos;     
      double Max; 
      double wvf;
      double sDev;   
@@ -82,7 +81,7 @@ int start()
      GetWVf(wvfHolder, pos);
      
      double wvf1Holder[];
-GetWVf(wvfHolder, pos)
+     //GetWVf(wvfHolder, pos)
      
      // pos = 0 is the latest bar
      while (pos >= 0)
@@ -116,8 +115,8 @@ GetWVf(wvfHolder, pos)
          
          
          // wvf1
-         Max = Close[iLowest(NULL, 0, MODE_CLOSE, pd, pos)];
-         wvf1 = 100 * (Max - High[pos]) / Max;
+         //Max = Close[iLowest(NULL, 0, MODE_CLOSE, pd, pos)];
+         //wvf1 = 100 * (Max - High[pos]) / Max;
          
          
          
@@ -128,6 +127,116 @@ GetWVf(wvfHolder, pos)
      
      
      return (0);
+}
+
+*/
+
+
+int OnCalculate(const int rates_total,
+                const int prev_calculated,
+                const datetime &time[],
+                const double &open[],
+                const double &high[],
+                const double &low[],
+                const double &close[],
+                const long &tick_volume[],
+                const long &volume[],
+                const int &spread[])
+{
+   int limit = rates_total - prev_calculated;
+   if (limit > rates_total - 1)
+      limit = rates_total - 1;
+   if (limit < 0)
+      return 0;
+      
+   int startBar = prev_calculated > 1 ? prev_calculated - 1 : 0;
+   
+   double Max; 
+   double Lw;
+   double wvf;
+   double wvf1;
+   double sDev;
+    double sDev1;   
+   double midLine;
+   double midLine1;
+   double lowerBand;
+   double lowerBand1;
+   double upperBand;
+   double upperBand1;
+   double rangeHigh;
+   double rangeLow1; 
+     
+   
+   
+   
+   double wvfHolder[];
+   GetWVf(wvfHolder, limit);
+   
+   double wvfHolder1[];
+   GetWVf1(wvfHolder1, limit);
+   
+   // pos = 0 is the latest bar
+   for (int pos = limit; pos >= 0; pos--)
+   {
+      // wvf
+      Max = Close[iHighest(NULL, 0, MODE_CLOSE, pd, pos)];
+      wvf = 100 * (Max - Low[pos]) / Max;
+      
+      // midline
+      midLine = SimpleMA(wvfHolder, pos, bbl);
+      
+      // sDev
+      sDev = mult * CalculateStd(wvfHolder, pos, bbl, midLine);
+      
+      lowerBand = midLine - sDev;        
+      upperBand = midLine + sDev;  
+           
+      rangeHigh = ph * GetWvfHighest(wvfHolder, pos, lb);
+      
+      bool cmsLongCondition = wvf >= upperBand || wvf >= rangeHigh;
+        
+      if (cmsLongCondition)
+      {
+         BottomSignal[pos] = -wvf;
+         BottomGray[pos] = EMPTY_VALUE;
+      }
+      else
+      {
+         BottomGray[pos] = -wvf;          
+      }
+      
+      //---------------------------------------------//
+      
+      // wvf1
+      Lw = Close[iLowest(NULL, 0, MODE_CLOSE, pd, pos)];
+      wvf1 = 100 * (Lw - High[pos]) / Lw;
+      
+      // midline1
+      midLine1 = SimpleMA(wvfHolder1, pos, bbl);
+      
+      // sDev1
+      sDev1 = mult * CalculateStd(wvfHolder1, pos, bbl, midLine);
+      
+      lowerBand1 = midLine1 - sDev1;        
+      upperBand1 = midLine1 + sDev1; 
+      
+      rangeLow1 = ph * GetWvf1Lowest(wvfHolder1, pos, lb);
+      
+      bool cmsShortCondition = wvf1 <= lowerBand1 || wvf1 <= rangeLow1;
+        
+      if (cmsShortCondition)
+      {
+         TopSignal[pos] = -wvf1;
+         TopGray[pos] = EMPTY_VALUE;
+      }
+      else
+      {
+         TopGray[pos] = -wvf1;          
+      }
+      
+   }
+   
+   return (rates_total);
 }
 
 
@@ -148,6 +257,23 @@ void GetWVf(double &output[], int pos)
    }
 }
 
+
+//+------------------------------------------------------------------+
+// Original code to find top : wvf1                                  |
+//+------------------------------------------------------------------+
+void GetWVf1(double &output[], int pos)
+{
+   ArrayResize(output, pos); 
+   double Lw, wvf1;
+
+   while (pos >= 0)
+   {
+      Lw = Close[iLowest(NULL, 0, MODE_CLOSE, pd, pos)];
+      wvf1 = 100 * (Lw - High[pos]) / Lw;
+      output[pos] = wvf1;
+      pos--;
+   }
+}
 
 
 //+------------------------------------------------------------------+
@@ -196,3 +322,18 @@ double GetWvfHighest(double src[], int pos, int length)
    }
    return highest;
 }
+
+//+------------------------------------------------------------------+
+// Get wvf1 Lowest given lenght bars back                                |
+//+------------------------------------------------------------------+
+double GetWvf1Lowest(double src[], int pos, int length)
+{
+   double lowest = src[pos];
+   for (int i = 0; i < length; i++)
+   {
+      if (src[pos + i] < lowest)
+         lowest = src[pos + i];      
+   }
+   return lowest;
+}
+
