@@ -1,10 +1,9 @@
 //+------------------------------------------------------------------+
-//|                                              William VIX-FIX.mq4 |
-//|                                    Copyright © 2013, Marketcalls |
-//|                                        http://www.marketcalls.in |
+//|                  CM_Williams_Vix_Fix - Market Top and Bottom.mq4 |
+//|                                   Copyright © 2024, Maynard Paye |
+//|                                                                  |
 //+------------------------------------------------------------------+
-#property copyright "Copyright © 2015, Marketcalls"
-#property link "http://www.marketcalls.in"
+#property copyright "Copyright © 2024, Maynard Paye"
 
 #property indicator_separate_window
 #property indicator_buffers 1
@@ -78,8 +77,15 @@ int start()
          
          // sDev
          sDev = mult * CalculateStd(wvfHolder, pos, bbl, midLine);
+         
+         lowerBand = midLine - sDev;        
+         upperBand = midLine + sDev;  
+              
+         rangeHigh = ph * GetWvfHighest(wvfHolder, pos, lb);
+         
+         
 
-         VIXFIX[pos] = sDev;
+         VIXFIX[pos] = rangeHigh;
    
          pos--;
      }
@@ -141,3 +147,16 @@ double CalculateStd(double src[], int pos, int length, double avg)
 }
 
 
+//+------------------------------------------------------------------+
+// Get wvf Highest given lenght bars back                                |
+//+------------------------------------------------------------------+
+double GetWvfHighest(double src[], int pos, int length)
+{
+   double highest = 0;
+   for (int i = 0; i < length; i++)
+   {
+      if (src[pos + i] > highest)
+         highest = src[pos + i];      
+   }
+   return highest;
+}
