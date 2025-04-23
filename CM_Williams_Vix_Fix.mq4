@@ -66,51 +66,22 @@ int start()
      GetWVf(wvfHolder, pos);
 
      
-      /*
-     if (wvfSize > 0 ) 
-     {
-        for (int i = ArraySize(wvf) - 1; i >= 0; i--)
-        {
-            VIXFIX[i] = -1 * wvf[i];
-        }
-     }
-     */
-     
-     
      // pos = 0 is the latest bar
      while (pos >= 0)
      {
          // wvf
          Max = Close[iHighest(NULL, 0, MODE_CLOSE, pd, pos)];
          wvf = 100 * (Max - Low[pos]) / Max;
-
+         
          // midline
          midLine = SimpleMA(wvfHolder, pos, bbl);
          
-         
-         // Compute standard deviation manually using Pine-style logic
-         //double avg = SimpleMA(pos, bbl);
-         //sDev = mult * GetManualStdev(pos, bbl, avg, mult);
+         // sDev
+         sDev = mult * CalculateStd(wvfHolder, pos, bbl, midLine);
 
-         //sDev = mult * iStdDev(NULL, 0, bbl, 0, MODE_SMA, wvf, pos);
-         
-          //midLine = iMA(NULL, 0, bbl, 0, MODE_SMA, wvf, pos);    
-          //lowerBand = midLine - sDev;
-          //upperBand = midLine + sDev;
-          //rangeHigh = iMA(NULL, 0, lb, 0, MODE_SMA, wvf, pos) * ph;
-
-
-          // Correct up to here //
-
-
-
-
-
-          VIXFIXSTD[pos] = sDev;
-          
-          VIXFIX[pos] = midLine;
+         VIXFIX[pos] = sDev;
    
-          pos--;
+         pos--;
      }
      
      
@@ -119,7 +90,7 @@ int start()
 
 
 //+------------------------------------------------------------------+
-// Original code to find bottom : wvf
+// Original code to find bottom : wvf                                |
 //+------------------------------------------------------------------+
 void GetWVf(double &output[], int pos)
 {
@@ -149,4 +120,24 @@ double SimpleMA(double src[], int pos, int length)
    }
    return sum / length;
 }
+
+//+------------------------------------------------------------------+
+//| Calculate Standard Deviation                                     |
+//+------------------------------------------------------------------+
+double CalculateStd(double src[], int pos, int length, double avg)
+{
+
+   double sum = 0;
+   double sumSquaredDiffs = 0;
+
+   // Summation (Xi - X)^2
+   for (int j = 0; j < length; j++) {
+      double diff = src[pos + j] - avg;
+      sumSquaredDiffs += diff * diff;
+   }
+   
+   return MathSqrt(sumSquaredDiffs / length);
+   
+}
+
 
