@@ -1,0 +1,110 @@
+#property indicator_separate_window
+#property indicator_buffers 1
+#property indicator_color1 Blue
+#property indicator_width1 2   // <-- This sets the width
+#property strict
+
+//--- Inputs
+double BarBuffer[];
+double BarBufferTop[];   
+double BarBufferBottom[]; 
+
+input int pd = 22;
+input int bbl = 20;
+input double mult = 2.0;
+input int lb = 50;
+input double ph = 0.85;
+
+
+int OnInit()
+{
+   SetIndexBuffer(0, BarBuffer);
+   SetIndexStyle(0, DRAW_HISTOGRAM, STYLE_SOLID , 2, clrGray);  // gray
+   
+   SetIndexBuffer(1, BarBufferTop);
+   SetIndexStyle(1, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrLime);  // Green up
+   
+   SetIndexBuffer(2, BarBufferBottom);
+   SetIndexStyle(2, DRAW_HISTOGRAM, STYLE_SOLID, 2, clrRed);   // Red down
+   
+   ArraySetAsSeries(BarBuffer, true);
+   ArraySetAsSeries(BarBufferTop, true);
+   ArraySetAsSeries(BarBufferBottom, true);
+   
+   return(INIT_SUCCEEDED);
+}
+
+int OnCalculate(const int rates_total,
+                const int prev_calculated,
+                const datetime &time[],
+                const double &open[],
+                const double &high[],
+                const double &low[],
+                const double &close[],
+                const long &tick_volume[],
+                const long &volume[],
+                const int &spread[])
+{
+    for(int i = 0; i < rates_total; i++)
+    {
+         //BarBuffer[i] = close[i] - open[i];
+        
+         // wvf = ((ta.highest(close, pd) - low) / (ta.highest(close, pd))) * 100
+         int highest_index = iHighest(NULL, 0, MODE_CLOSE, pd, i);
+         double highest_close = Close[highest_index];
+         double wvf = ((highest_close - Low[i]) / highest_close) * 100;
+        
+         // sDev = mult * ta.stdev(wvf, bbl)        
+         double sDev = mult * (iStdDev(NULL, 0, bbl, 0, MODE_SMA, PRICE_CLOSE, i ));
+        
+         // midLine = ta.sma(wvf, bbl)
+         double midLine = iMA(NULL, 0, bbl, 0, MODE_SMA,PRICE_CLOSE, i);        
+
+         double lowerBand = midLine - sDev;         
+         double upperBand = midLine + sDev;
+         
+         // rangeHigh = (ta.highest(wvf, lb)) * ph
+         int rangeHigh = iHighest(NULL, 0, MODE_CLOSE, lb, i) * ph;
+         
+         
+         // wvf1 = ((ta.lowest(close, pd) - high) / (ta.lowest(close, pd))) * 100
+         int lowest_index = iLowest(NULL, 0, MODE_CLOSE, pd, i);
+         double lowest_close = Close[lowest_index];
+         double wvf1 = ((highest_close - High[i]) / lowest_close) * 100;
+         
+         // sDev1 = mult * ta.stdev(wvf1, bbl)
+         double sDev1 = mult * (iStdDev(NULL, 0, bbl, 0, MODE_SMA, PRICE_CLOSE, i ));
+         
+         // midLine1 = ta.sma(wvf1, bbl)
+         double midLine1 = iMA(NULL, 0, bbl, 0, MODE_SMA,PRICE_CLOSE, i); 
+         
+         double lowerBand1 = midLine - sDev;         
+         double upperBand1 = midLine + sDev;        
+         
+         // rangeLow1 = (ta.lowest(wvf1, lb)) * ph
+          int rangeLow1 = iLowest(NULL, 0, MODE_CLOSE, lb, i) * ph;
+          
+         bool cmsLongCondition = wvf >= upperBand || wvf >= rangeHigh;
+         bool cmsShortCondition = wvf1 <= lowerBand1 || wvf1 <= rangeLow1;
+         
+       
+         BarBuffer[i] = wvf1;
+            
+         if (cmsLongCondition){
+            BarBufferTop[i] = wvf;
+         }else {
+            BarBuffer[i] = close[i] - open[i];;
+         }
+         
+         if (cmsShortCondition){
+            BarBufferBottom[i] = wvf1;
+         } else {
+            BarBuffer[i] = close[i] - open[i];;
+         }
+         
+         
+         
+    }
+    
+    return(rates_total);
+}
