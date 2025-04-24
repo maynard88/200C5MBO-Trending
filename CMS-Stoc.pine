@@ -1,5 +1,5 @@
 //@version=5
-strategy("Stochastic Long Strategy (15m TF) with Proper Position Management", overlay=true)
+strategy("Stochastic Long Strategy (15m TF) with Proper Position Management", overlay=true, default_qty_value=1, initial_capital=6000)
 
 // === Settings ===
 kLength = 5
@@ -58,11 +58,13 @@ shortPosition = stochShortCondition and cmsShortCondition
 // === Strategy Execution with Proper Management ===
 if (longPosition)
     strategy.close("Short")         // Close existing short position if any
-    strategy.entry("Long", strategy.long, qty=454)  // Open long position
+    strategy.entry("Long", strategy.long, qty=1)  // Open long position
+    //strategy.exit("Long SL", from_entry="Long", loss=1500)
 
 
 if (shortPosition)
     strategy.close("Long")          // Close existing long position if any
-    strategy.entry("Short", strategy.short, qty=454)  // Open short position
+    strategy.entry("Short", strategy.short, qty=1)  // Open short position
+    //strategy.exit("Short SL", from_entry="Short", loss=1500)
 
 
