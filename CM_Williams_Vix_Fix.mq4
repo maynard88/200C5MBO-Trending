@@ -56,6 +56,15 @@ int deinit()
 
 int start()
 {
+     static datetime lastTime = 0;
+     
+     // Only proceed on new candle
+    if (Time[0] == lastTime)
+        return 0;
+        
+     lastTime = Time[0];
+     
+     
      if (Bars <= pd)
           return (0);
      int ExtCountedBars = IndicatorCounted();
@@ -143,6 +152,7 @@ int OnCalculate(const int rates_total,
                 const long &volume[],
                 const int &spread[])
 {
+   
    int limit = rates_total - prev_calculated;
    if (limit > rates_total - 1)
       limit = rates_total - 1;
@@ -165,7 +175,15 @@ int OnCalculate(const int rates_total,
    double upperBand1;
    double rangeHigh;
    double rangeLow1; 
+   
+   
+   static datetime lastTime = 0;
      
+     // Only proceed on new candle
+   if (Time[0] == lastTime)
+        return 0;
+        
+   lastTime = Time[0];  
    
    
    
