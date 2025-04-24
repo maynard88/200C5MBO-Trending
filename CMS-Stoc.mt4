@@ -1,121 +1,241 @@
 //+------------------------------------------------------------------+
-//|                                Stochastic 15m + VixFix 5m EA    |
+//|              CM_Williams_VixFix_Stoch_Trader.mq4                 |
 //+------------------------------------------------------------------+
 #property strict
 
-// Inputs
-input int kLength = 5;
-input int kSmoothing = 3;
-input int dSmoothing = 3;
-input int pd = 22;
-input int bbl = 20;
-input double mult = 2.0;
-input int lb = 50;
-input double ph = 0.85;
-input double Lots = 0.05; // Lot Size
-input int Slippage = 3;
+
+extern double LotSize = 0.10;
+int pd = 22;
+int bbl = 20;
+double mult = 2.0;
+int lb = 50;
+double ph = 0.85;
+
+int kLength = 5;
+int kSmoothing = 3;
+int dSmoothing = 3;
+
+datetime lastCandleTime = 0;
+
 
 //+------------------------------------------------------------------+
-//| Expert initialization function |
+//| Expert initialization function                                   |
 //+------------------------------------------------------------------+
-int OnInit() {
-   return INIT_SUCCEEDED;
+int OnInit()
+{
+   lastCandleTime = 0;
+   return(INIT_SUCCEEDED);
+}
+
+
+//+------------------------------------------------------------------+
+//| Expert tick function                                             |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+    // Only run logic once per new M5 candle
+    if (Period() != PERIOD_M5) return;
+
+    datetime currentTime = Time[0];
+    if (currentTime == lastCandleTime) return;
+
+    lastCandleTime = currentTime;
+   
+   
+    // Start of CM Williams
+    
+    int pos = 1;    
+    int limit = Bars;
+    
+    // wvf1
+    
+    double wvfHolder[]; GetWVf(wvfHolder,limit);
+    double wvf = 100 * (GetHighestClose(pd, pos) - Low[pos]) / GetHighestClose(pd, pos);
+    double midLine = SimpleMA(wvfHolder, pos, bbl);
+    double sDev = mult * CalculateStd(wvfHolder, pos, bbl, midLine);
+    double lowerBand = midLine - sDev;        
+    double upperBand = midLine + sDev; 
+    double rangeHigh = ph * GetWvfHighest(wvfHolder, pos, lb);
+    
+    bool cmsLongCondition = wvf >= upperBand || wvf >= rangeHigh;
+    
+    // wvf1
+    
+    double wvf1Holder[]; GetWVf1(wvf1Holder, limit);
+    double wvf1 = 100 * (GetLowestClose(pd, pos) - High[pos]) / GetLowestClose(pd, pos);
+    double midLine1 = SimpleMA(wvf1Holder, pos, bbl);
+    double sDev1 = mult * CalculateStd(wvf1Holder, pos, bbl, midLine1);
+    double lowerBand1 = midLine1 - sDev1;        
+    double upperBand1 = midLine1 + sDev1;
+    double rangeLow1 = ph * GetWvf1Lowest(wvf1Holder, pos, lb);
+
+    bool cmsShortCondition = wvf1 <= lowerBand1 || wvf1 <= rangeLow1;
+    
+    // Start of Stochastic
+    
+    double k15_prev = iStochastic(Symbol(), PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_MAIN, 1);
+    double d15_prev = iStochastic(Symbol(), PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_SIGNAL, 1);
+
+    double k15 = iStochastic(Symbol(), PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_MAIN, 0);
+    double d15 = iStochastic(Symbol(), PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_SIGNAL, 0);
+
+    // Stochastic Confirmation Conditions
+    bool stochLongCondition = (k15 < 20 && d15 < 20 && k15_prev < d15_prev && k15 > d15);
+    bool stochShortCondition = (k15 > 80 && d15 > 80 && k15_prev > d15_prev && k15 < d15);
+    
+
+    if (cmsLongCondition && stochLongCondition)
+    {
+        Print("Long Condition Met - Closing Shorts and Opening BUY");
+        CloseOrders(OP_SELL); // Close all shorts first
+        Sleep(1000); // Short pause to ensure closure is processed
+        OrderSend(Symbol(), OP_BUY, LotSize, Ask, 3, 0, 0, "VixFix Buy", 0, 0, clrGreen);
+    }
+    else if (cmsShortCondition && stochShortCondition)
+    {
+        Print("Short Condition Met - Closing Longs and Opening SELL");
+        CloseOrders(OP_BUY); // Close all longs first
+        Sleep(1000); // Short pause to ensure closure is processed
+        OrderSend(Symbol(), OP_SELL, LotSize, Bid, 3, 0, 0, "VixFix Sell", 0, 0, clrRed);
+    }
+}
+
+
+
+//+------------------------------------------------------------------+
+// GetHighestClose given len bars backward from pos                   |
+//+------------------------------------------------------------------+
+double GetHighestClose(int len, int pos)
+{
+    return Close[iHighest(NULL, 0, MODE_CLOSE, len, pos)];
+}
+
+
+
+//+------------------------------------------------------------------+
+// GetLowestClose given len bars backward from pos                   |
+//+------------------------------------------------------------------+
+double GetLowestClose(int len, int pos)
+{
+    return Close[iLowest(NULL, 0, MODE_CLOSE, len, pos)];
+}
+
+
+//+------------------------------------------------------------------+
+// CloseOrders given specific  orderType                             |
+//+------------------------------------------------------------------+
+void CloseOrders(int orderType)
+{
+    for (int i = OrdersTotal() - 1; i >= 0; i--)
+    {
+        if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+        {
+            if (OrderType() == orderType && OrderSymbol() == Symbol())
+            {
+                if (orderType == OP_BUY)
+                    OrderClose(OrderTicket(), OrderLots(), Bid, 3, clrRed);
+                else if (orderType == OP_SELL)
+                    OrderClose(OrderTicket(), OrderLots(), Ask, 3, clrGreen);
+            }
+        }
+    }
+}
+
+
+//+------------------------------------------------------------------+
+// Original code to find bottom : wvf                                |
+//+------------------------------------------------------------------+
+void GetWVf(double &output[], int pos)
+{
+   ArrayResize(output, pos); 
+   double Max, wvf;
+
+   while (pos >= 0)
+   {
+      Max = Close[iHighest(NULL, 0, MODE_CLOSE, pd, pos)];
+      wvf = 100 * (Max - Low[pos]) / Max;
+      output[pos] = wvf;
+      pos--;
+   }
+}
+
+
+//+------------------------------------------------------------------+
+// Original code to find top : wvf1                                  |
+//+------------------------------------------------------------------+
+void GetWVf1(double &output[], int pos)
+{
+   ArrayResize(output, pos); 
+   double Lw, wvf1;
+
+   while (pos >= 0)
+   {
+      Lw = Close[iLowest(NULL, 0, MODE_CLOSE, pd, pos)];
+      wvf1 = 100 * (Lw - High[pos]) / Lw;
+      output[pos] = wvf1;
+      pos--;
+   }
+}
+
+
+//+------------------------------------------------------------------+
+//| Simple Moving Average                                            |
+//+------------------------------------------------------------------+
+double SimpleMA(double &src[], int pos, int length)
+{
+   double sum = 0;
+   for (int i = 0; i < length; i++)
+   {
+      sum += src[pos + i];
+   }
+   return sum / length;
 }
 
 //+------------------------------------------------------------------+
-//| Expert tick function |
+//| Calculate Standard Deviation                                     |
 //+------------------------------------------------------------------+
-void OnTick() {
-   // --- Calculate Stochastic (from M15 Timeframe) ---
-   double kPrev = iStochastic(NULL, PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_MAIN, 1);
-   double dPrev = iStochastic(NULL, PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_SIGNAL, 1);
+double CalculateStd(double &src[], int pos, int length, double avg)
+{
 
-   double kCurr = iStochastic(NULL, PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_MAIN, 0);
-   double dCurr = iStochastic(NULL, PERIOD_M15, kLength, kSmoothing, dSmoothing, MODE_SMA, 0, MODE_SIGNAL, 0);
+   double sum = 0;
+   double sumSquaredDiffs = 0;
 
-   bool stochLongCondition = (kCurr < 20) && (dCurr < 20) && (kPrev < dPrev) && (kCurr > dCurr);
-   bool stochShortCondition = (kCurr > 80) && (dCurr > 80) && (kPrev > dPrev) && (kCurr < dCurr);
-
-   // --- Prepare VixFix arrays ---
-   double wvfArray[500];
-   double wvf1Array[500];
-
-   int wvfSize = MathMax(pd, MathMax(bbl, lb)) + 10; // Make sure array is big enough
-
-   for (int i = 0; i < wvfSize; i++) {
-      double highestCloseVal = Close[iHighest(NULL, 0, MODE_CLOSE, pd, i)];
-      wvfArray[i] = ((highestCloseVal - Low[i]) / highestCloseVal) * 100;
-
-      double lowestCloseVal = Close[iLowest(NULL, 0, MODE_CLOSE, pd, i)];
-      wvf1Array[i] = ((lowestCloseVal - High[i]) / lowestCloseVal) * 100;
+   // Summation (Xi - X)^2
+   for (int j = 0; j < length; j++) {
+      double diff = src[pos + j] - avg;
+      sumSquaredDiffs += diff * diff;
    }
+   
+   return MathSqrt(sumSquaredDiffs / length);
+   
+}
 
-   // --- VixFix Calculations ---
-   double midLine = iMAOnArray(wvfArray, 0, bbl, 0, MODE_SMA, 0);
-   double sDev = mult * iStdDevOnArray(wvf1Array, wvfSize, bbl, 0, MODE_SMA, 0);
-   double upperBand = midLine + sDev;
-   double rangeHigh = High[iHighest(NULL, 0, MODE_CLOSE, lb, 0)] * ph;
 
-   double midLine1 = iMAOnArray(wvf1Array, 0, bbl, 0, MODE_SMA, 0);
-   double sDev1 = mult * iStdDevOnArray(wvf1Array, wvfSize, bbl, 0, MODE_SMA, 0);
-   double lowerBand1 = midLine1 - sDev1;
-   double rangeLow1 = Low[iLowest(NULL, 0, MODE_CLOSE, lb, 0)] * ph;
-
-   bool cmsLongCondition = (wvfArray[0] >= upperBand) || (wvfArray[0] >= rangeHigh);
-   bool cmsShortCondition = (wvf1Array[0] <= lowerBand1) || (wvf1Array[0] <= rangeLow1);
-
-   // --- Combined Position Logic ---
-   bool longPosition = stochLongCondition && cmsLongCondition;
-   bool shortPosition = stochShortCondition && cmsShortCondition;
-
-   // --- Execute Trades ---
-   if (longPosition) {
-      CloseAllShorts();
-      OpenOrder(OP_BUY);
+//+------------------------------------------------------------------+
+// Get wvf Highest given lenght bars back                                |
+//+------------------------------------------------------------------+
+double GetWvfHighest(double &src[], int pos, int length)
+{
+   double highest = 0;
+   for (int i = 0; i < length; i++)
+   {
+      if (src[pos + i] > highest)
+         highest = src[pos + i];      
    }
-
-   if (shortPosition) {
-      CloseAllLongs();
-      OpenOrder(OP_SELL);
-   }
+   return highest;
 }
 
 //+------------------------------------------------------------------+
-//| Open Orders |
+// Get wvf1 Lowest given lenght bars back                                |
 //+------------------------------------------------------------------+
-void OpenOrder(int orderType) {
-   double price = (orderType == OP_BUY) ? Ask : Bid;
-   double sl = 0; // No SL
-   double tp = 0; // No TP
-   int ticket = OrderSend(Symbol(), orderType, Lots, price, Slippage, sl, tp, "Auto EA", 0, 0, clrBlue);
-   if (ticket < 0) {
-      Print("OrderSend failed with error #", GetLastError());
+double GetWvf1Lowest(double &src[], int pos, int length)
+{
+   double lowest = src[pos];
+   for (int i = 0; i < length; i++)
+   {
+      if (src[pos + i] < lowest)
+         lowest = src[pos + i];      
    }
+   return lowest;
 }
 
-//+------------------------------------------------------------------+
-//| Close all Long Orders |
-//+------------------------------------------------------------------+
-void CloseAllLongs() {
-   for (int i = OrdersTotal() - 1; i >= 0; i--) {
-      if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES)) {
-         if (OrderType() == OP_BUY && OrderSymbol() == Symbol()) {
-            OrderClose(OrderTicket(), OrderLots(), Bid, Slippage, clrWhite);
-         }
-      }
-   }
-}
-
-//+------------------------------------------------------------------+
-//| Close all Short Orders |
-//+------------------------------------------------------------------+
-void CloseAllShorts() {
-   for (int i = OrdersTotal() - 1; i >= 0; i--) {
-      if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES)) {
-         if (OrderType() == OP_SELL && OrderSymbol() == Symbol()) {
-            OrderClose(OrderTicket(), OrderLots(), Ask, Slippage, clrWhite);
-         }
-      }
-   }
-}
-//+------------------------------------------------------------------+

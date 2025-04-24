@@ -198,7 +198,7 @@ int OnCalculate(const int rates_total,
    {
       // wvf
       Max = Close[iHighest(NULL, 0, MODE_CLOSE, pd, pos)];
-      wvf = 100 * (Max - Low[pos]) / Max;
+      wvf = (Max - Low[pos]) / Max * 100;
       
       // midline
       midLine = SimpleMA(wvfHolder, pos, bbl);
@@ -227,7 +227,7 @@ int OnCalculate(const int rates_total,
       
       // wvf1
       Lw = Close[iLowest(NULL, 0, MODE_CLOSE, pd, pos)];
-      wvf1 = 100 * (Lw - High[pos]) / Lw;
+      wvf1 = (Lw - High[pos]) / Lw * 100;
       
       // midline1
       midLine1 = SimpleMA(wvfHolder1, pos, bbl);
@@ -269,7 +269,7 @@ void GetWVf(double &output[], int pos)
    while (pos >= 0)
    {
       Max = Close[iHighest(NULL, 0, MODE_CLOSE, pd, pos)];
-      wvf = 100 * (Max - Low[pos]) / Max;
+      wvf =  (Max - Low[pos]) / Max * 100;
       output[pos] = wvf;
       pos--;
    }
@@ -287,7 +287,7 @@ void GetWVf1(double &output[], int pos)
    while (pos >= 0)
    {
       Lw = Close[iLowest(NULL, 0, MODE_CLOSE, pd, pos)];
-      wvf1 = 100 * (Lw - High[pos]) / Lw;
+      wvf1 =  (Lw - High[pos]) / Lw * 100;
       output[pos] = wvf1;
       pos--;
    }
