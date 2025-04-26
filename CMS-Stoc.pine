@@ -1,5 +1,5 @@
 //@version=5
-strategy("Stochastic Long Strategy (15m TF) with Proper Position Management", overlay=true, default_qty_value=1, initial_capital=6000)
+strategy("Stochastic Long Strategy (15m TF) with Proper Position Management", overlay=true, default_qty_value=1, initial_capital=1000)
 
 // === Settings ===
 kLength = 5
@@ -16,8 +16,11 @@ f_stoch(srcHigh, srcLow, srcClose) =>
 [k15, d15] = request.security(syminfo.tickerid, stochTF, f_stoch(high, low, close))
 
 // === Stochastic Conditions ===
-stochLongCondition = (k15 < 20) and (d15 < 20) and ta.crossover(k15, d15)
-stochShortCondition = (k15 > 80) and (d15 > 80) and ta.crossunder(k15, d15)
+//stochLongCondition = (k15 < 20) and (d15 < 20) and ta.crossover(k15, d15)
+//stochShortCondition = (k15 > 80) and (d15 > 80) and ta.crossunder(k15, d15)
+
+stochLongCondition = (k15 < 13) and (d15 < 13) and ta.crossover(k15, d15)
+stochShortCondition = (k15 > 83) and (d15 > 83) and ta.crossunder(k15, d15)
 
 // === Plot the Stochastic Lines ===
 //plot(k15, title="%K 15m", color=color.blue)
@@ -58,13 +61,13 @@ shortPosition = stochShortCondition and cmsShortCondition
 // === Strategy Execution with Proper Management ===
 if (longPosition)
     strategy.close("Short")         // Close existing short position if any
-    strategy.entry("Long", strategy.long, qty=1)  // Open long position
+    strategy.entry("Long", strategy.long, qty=0.1)  // Open long position
     //strategy.exit("Long SL", from_entry="Long", loss=1500)
 
 
 if (shortPosition)
     strategy.close("Long")          // Close existing long position if any
-    strategy.entry("Short", strategy.short, qty=1)  // Open short position
+    strategy.entry("Short", strategy.short, qty=0.1)  // Open short position
     //strategy.exit("Short SL", from_entry="Short", loss=1500)
 
 
