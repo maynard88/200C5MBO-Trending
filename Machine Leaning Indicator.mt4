@@ -3,28 +3,55 @@
 
 //@version=5
 indicator("Machine Learning Moving Average [LuxAlgo]", "LuxAlgo - Machine Learning Moving Average", overlay = true)
+
 //---------------------------------------------------------------------------------------------------------------------}
+// WHAT THIS INDICATOR DOES:
+// This is a Machine Learning Moving Average indicator that uses Gaussian Process Regression (GPR)
+// to predict price movements. It combines traditional moving averages with machine learning
+// to create a more adaptive and predictive moving average line.
+//
+// KEY CONCEPTS:
+// 1. Gaussian Process Regression (GPR) - A machine learning technique that predicts values
+//    based on the similarity between data points using a kernel function
+// 2. Radial Basis Function (RBF) Kernel - Measures similarity between data points
+// 3. The indicator predicts the "end point" of the moving average and creates
+//    confidence bands around it
+//---------------------------------------------------------------------------------------------------------------------}
+
 //Settings
 //---------------------------------------------------------------------------------------------------------------------{
+// Window size for the moving average calculation and training data
 window = input.int(100, minval = 0)
+// How many bars ahead to forecast (0 = current bar prediction)
 forecast = input.int(0)
+// Noise parameter for the Gaussian Process (controls smoothness)
 sigma = input.float(0.01, step = 0.1, minval = 0)
 
+// Multiplier for the confidence bands (wider bands = higher multiplier)
 mult = input.float(2, 'Multiplicative Factor', minval = 0)
+// Price source to use for calculations (close, open, high, low, etc.)
 src = input.source(close, 'Source')
 
 //Style
+// Colors for the upper and lower confidence bands
 upCss = input(color.new(#5b9cf6, 50), 'Upper Extremity', group = 'Style')
 dnCss = input(color.new(#e91e63, 50), 'Lower Extremity', group = 'Style')
 
+// Colors for the moving average line (bullish/bearish states)
 bullCss = input(#3179f5, 'Moving Average', inline = 'ma', group = 'Style')
 bearCss = input(#e91e63, ''              , inline = 'ma', group = 'Style')
 
 //---------------------------------------------------------------------------------------------------------------------}
 //Functions
 //---------------------------------------------------------------------------------------------------------------------{
+// Radial Basis Function (RBF) Kernel
+// This function calculates the similarity between two data points
+// The closer the points, the higher the similarity (closer to 1)
+// The farther apart, the lower the similarity (closer to 0)
 rbf(x1, x2, l)=> math.exp(-math.pow(x1 - x2, 2) / (2.0 * math.pow(l, 2)))
 
+// Creates a kernel matrix that stores similarities between all pairs of data points
+// This is the core of Gaussian Process Regression
 kernel_matrix(X1, X2, l)=>
     km = matrix.new<float>(X1.size(), X2.size())
 
@@ -42,71 +69,101 @@ kernel_matrix(X1, X2, l)=>
 //---------------------------------------------------------------------------------------------------------------------}
 //Kernel Setup
 //---------------------------------------------------------------------------------------------------------------------{
+// Initialize identity matrix and kernel row array
 var identity = matrix.new<int>(window, window, 0)
 var array<float> K_row = na
 
+// This section runs only once when the indicator starts
 if barstate.isfirst
-    xtrain = array.new<int>(0)
-    xtest = array.new<int>(0)
+    xtrain = array.new<int>(0)  // Training data indices
+    xtest = array.new<int>(0)   // Testing data indices
 
     //Build identity matrix and training array
+    // Identity matrix is used to add noise regularization to the kernel
     for i = 0 to window-1
         for j = 0 to window-1
-            identity.set(i, j, i == j ? 1 : 0)
+            identity.set(i, j, i == j ? 1 : 0)  // 1 on diagonal, 0 elsewhere
     
-        xtrain.push(i)
+        xtrain.push(i)  // Add training indices [0, 1, 2, ..., window-1]
     
     //Build testing array
+    // Includes current window plus any forecast period
     for i = 0 to window+forecast-1
         xtest.push(i)
     
-    //Compute kernel matrices
-    s = identity.mult(sigma * sigma)
-    Ktrain = kernel_matrix(xtrain, xtrain, window).sum(s)
-    K_inv = Ktrain.pinv()
-    K_star = kernel_matrix(xtrain, xtest, window)
+    //Compute kernel matrices for Gaussian Process Regression
+    s = identity.mult(sigma * sigma)  // Add noise regularization
+    Ktrain = kernel_matrix(xtrain, xtrain, window).sum(s)  // Training kernel matrix
+    K_inv = Ktrain.pinv()  // Pseudo-inverse for solving the GPR equation
+    K_star = kernel_matrix(xtrain, xtest, window)  // Test kernel matrix
+    // Extract the row that corresponds to our prediction point
     K_row := K_star.transpose().mult(K_inv).row(window+forecast-1)
 
 //---------------------------------------------------------------------------------------------------------------------}
 //Moving Average
 //---------------------------------------------------------------------------------------------------------------------{
+// State variable to track bullish/bearish conditions
 var os = 0
 
+// Calculate simple moving average as baseline
 mean = ta.sma(src, window)
 
-//Get end point estimate
+//Get end point estimate using Gaussian Process Regression
 float out = na
 
+// Only start predictions after we have enough data
 if bar_index > window
     dotprod = 0.
-    //Dot product between last K_row and training data
+    //Dot product between kernel row and training data
+    // This is the core GPR prediction formula
     for i = 0 to window-1
         dotprod += K_row.get(i) * (src[window-1 - i] - mean)
 
-    //Output
+    //Output: GPR prediction + baseline mean
     out := dotprod + mean
 
+// Calculate Mean Absolute Error (MAE) for confidence bands
+// This measures how accurate our predictions have been
 mae = ta.sma(math.abs(src - out), window) * mult
-upper = out + mae
-lower = out - mae
+upper = out + mae  // Upper confidence band
+lower = out - mae  // Lower confidence band
 
+// Determine bullish/bearish state based on price position and trend
+// Bullish: price above upper band AND prediction is rising
+// Bearish: price below lower band AND prediction is falling
 os := close > upper and out > out[1] ? 1 : close < lower and out < out[1] ? 0 : os
 
 //---------------------------------------------------------------------------------------------------------------------}
 //Plot
 //---------------------------------------------------------------------------------------------------------------------{
+// Plot the main moving average line
+// Color changes based on bullish/bearish state
 plot_out = plot(out, 'End Point GPR', color = os ? bullCss : bearCss)
 
+// Plot circles at state change points (when trend changes)
 plot(os != os[1] ? out : na
   , 'Circle'
   , os ? bullCss : bearCss
   , 3
   , plot.style_circles)
 
+// Plot confidence bands (invisible lines for fill function)
 plot_upper = plot(upper, 'Upper', color = na)
 plot_lower = plot(lower, 'Lower', color = na)
 
+// Fill areas between the moving average and confidence bands
+// Upper area: between MA and upper band (blue tint)
 fill(plot_upper, plot_out, out + mae, out, upCss, color.new(chart.bg_color, 100))
+// Lower area: between MA and lower band (red tint)
 fill(plot_out, plot_lower, out, out - mae, color.new(chart.bg_color, 100), dnCss)
 
+//---------------------------------------------------------------------------------------------------------------------}
+// HOW THE INDICATOR WORKS:
+// 1. Uses historical price data to train a Gaussian Process Regression model
+// 2. The RBF kernel measures similarity between different time points
+// 3. Predicts the "true" moving average value using machine learning
+// 4. Creates confidence bands based on prediction accuracy
+// 5. Changes color based on price position relative to bands and trend direction
+// 6. The indicator is more adaptive than traditional moving averages because
+//    it learns from the data's patterns and adjusts its predictions accordingly
 //---------------------------------------------------------------------------------------------------------------------}
